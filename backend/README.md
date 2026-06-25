@@ -82,7 +82,7 @@ TARGET_DIR=./example
 Build image:
 
 ```bash
-docker compose build
+docker compose --profile index build
 ```
 
 Jalankan API server di background:
@@ -100,8 +100,8 @@ docker compose --profile index run --rm indexer
 Setelah server jalan, test endpoint:
 
 ```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/stats
+curl "http://localhost:${PORT:-3000}/health"
+curl "http://localhost:${PORT:-3000}/stats"
 ```
 
 Kalau mau mode watch supaya perubahan file otomatis di-index ulang:
