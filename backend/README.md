@@ -70,7 +70,7 @@ Edit `.env`:
 ```env
 GROQ_API_KEY=isi_groq_api_key_kamu
 TARGET_DIR=/path/ke/project/yang/mau/dianalisis
-PORT=3000
+PORT=3434
 ```
 
 Contoh kalau mau menganalisis folder contoh bawaan repo:
@@ -100,8 +100,8 @@ docker compose --profile index run --rm indexer
 Setelah server jalan, test endpoint:
 
 ```bash
-curl "http://localhost:${PORT:-3000}/health"
-curl "http://localhost:${PORT:-3000}/stats"
+curl "http://localhost:${PORT:-3434}/health"
+curl "http://localhost:${PORT:-3434}/stats"
 ```
 
 Kalau mau mode watch supaya perubahan file otomatis di-index ulang:
@@ -196,17 +196,17 @@ POST /agent         - Jalankan multi-agent analysis
 
 ```bash
 # Search
-curl -X POST http://localhost:3000/search \
+curl -X POST http://localhost:3434/search \
   -H "Content-Type: application/json" \
   -d '{"query": "authentication login"}'
 
 # Tanya AI
-curl -X POST http://localhost:3000/query \
+curl -X POST http://localhost:3434/query \
   -H "Content-Type: application/json" \
   -d '{"question": "Fungsi mana yang menangani JWT refresh token?"}'
 
 # Multi-agent analysis
-curl -X POST http://localhost:3000/agent \
+curl -X POST http://localhost:3434/agent \
   -H "Content-Type: application/json" \
   -d '{
     "query": "Analisis auth service ini",
@@ -215,10 +215,10 @@ curl -X POST http://localhost:3000/agent \
   }'
 
 # Impact analysis
-curl http://localhost:3000/impact/loginUser
+curl http://localhost:3434/impact/loginUser
 
 # Call chain
-curl http://localhost:3000/callchain/loginUser?depth=4
+curl http://localhost:3434/callchain/loginUser?depth=4
 ```
 
 ## Event System (Auto Re-index)
