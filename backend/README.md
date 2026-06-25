@@ -39,12 +39,11 @@ Architecture   Coding     Security
 
 ## Setup
 
-### 1. Clone & Install
+### 1. Clone
 
 ```bash
 git clone <repo>
-cd project-knowledge-engine
-bun install
+cd AiryuAgenticAgent/backend
 ```
 
 ### 2. Konfigurasi
@@ -58,7 +57,78 @@ Dapatkan Groq API key gratis di: https://console.groq.com
 
 ### 3. Jalankan
 
+#### Docker
+
+Cara paling praktis adalah lewat Docker Compose. Pastikan Docker sudah jalan, lalu siapkan `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+GROQ_API_KEY=isi_groq_api_key_kamu
+TARGET_DIR=/path/ke/project/yang/mau/dianalisis
+PORT=3000
+```
+
+Contoh kalau mau menganalisis folder contoh bawaan repo:
+
+```env
+TARGET_DIR=./example
+```
+
+Build image:
+
+```bash
+docker compose build
+```
+
+Jalankan API server di background:
+
+```bash
+docker compose up -d knowledge-engine
+```
+
+Index codebase sekali:
+
+```bash
+docker compose --profile index run --rm indexer
+```
+
+Setelah server jalan, test endpoint:
+
+```bash
+curl http://localhost:3000/health
+curl http://localhost:3000/stats
+```
+
+Kalau mau mode watch supaya perubahan file otomatis di-index ulang:
+
+```bash
+docker compose --profile watch up watcher
+```
+
+Lihat log API server:
+
+```bash
+docker compose logs -f knowledge-engine
+```
+
+Stop semua container:
+
+```bash
+docker compose down
+```
+
 #### Local (tanpa Docker)
+
+Kalau mau jalan langsung di mesin lokal, install dependency dulu:
+
+```bash
+bun install
+```
 
 ```bash
 # Index project kamu
@@ -69,26 +139,6 @@ bun run src/index.ts serve /path/to/your/project
 
 # Watch mode (auto re-index saat file berubah)
 bun run src/index.ts watch /path/to/your/project
-```
-
-#### Docker
-
-```bash
-# Copy env
-cp .env.example .env
-# Isi GROQ_API_KEY dan TARGET_DIR
-
-# Build image
-docker compose build
-
-# Index project (one-time)
-TARGET_DIR=/path/to/project docker compose --profile index up indexer
-
-# Jalankan API
-TARGET_DIR=/path/to/project docker compose up knowledge-engine
-
-# Atau jalankan semua sekaligus
-TARGET_DIR=/path/to/project docker compose up
 ```
 
 ## CLI Commands
