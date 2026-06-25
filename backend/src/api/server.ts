@@ -263,10 +263,12 @@ app.post(
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
-console.log(`\n🚀 Knowledge Engine API starting on port ${PORT}...`);
-console.log(`   http://localhost:${PORT}\n`);
-
-export default {
+const server = Bun.serve({
   port: PORT,
   fetch: app.fetch,
-};
+});
+
+console.log(`\n🚀 Knowledge Engine API running on port ${server.port}...`);
+console.log(`   http://localhost:${server.port}\n`);
+
+export default app;

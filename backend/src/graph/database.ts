@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import type { CodeNode, CodeEdge, FileInfo, IndexStats } from "../types";
 import { join } from "path";
 
@@ -8,20 +8,20 @@ const DB_PATH = process.env.DB_PATH || join(process.cwd(), "data", "knowledge.db
 import { mkdirSync } from "fs";
 mkdirSync(join(process.cwd(), "data"), { recursive: true });
 
-let _db: Database.Database | null = null;
+let _db: Database | null = null;
 
-export function getDb(): Database.Database {
+export function getDb(): Database {
   if (!_db) {
     _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("synchronous = NORMAL");
-    _db.pragma("cache_size = 10000");
+    _db.exec("PRAGMA journal_mode = WAL");
+    _db.exec("PRAGMA synchronous = NORMAL");
+    _db.exec("PRAGMA cache_size = 10000");
     initSchema(_db);
   }
   return _db;
 }
 
-function initSchema(db: Database.Database): void {
+function initSchema(db: Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS files (
       path TEXT PRIMARY KEY,
@@ -84,15 +84,23 @@ export function upsertNodes(nodes: CodeNode[]): void {
     INSERT OR REPLACE INTO nodes
       (id, type, name, file_path, start_line, end_line, content, signature, doc_comment, embedding)
     VALUES
-      (@id, @type, @name, @filePath, @startLine, @endLine, @content, @signature, @docComment, @embedding)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const upsertMany = db.transaction((nodes: CodeNode[]) => {
     for (const node of nodes) {
-      stmt.run({
-        ...node,
-        embedding: node.embedding ? Buffer.from(new Float32Array(node.embedding).buffer) : null,
-      });
+      stmt.run(
+        node.id,
+        node.type,
+        node.name,
+        node.filePath,
+        node.startLine,
+        node.endLine,
+        node.content,
+        node.signature ?? null,
+        node.docComment ?? null,
+        node.embedding ? Buffer.from(new Float32Array(node.embedding).buffer) : null
+      );
     }
   });
 
@@ -134,12 +142,12 @@ export function upsertEdges(edges: CodeEdge[]): void {
   const db = getDb();
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO edges (from_node, to_node, relation, weight)
-    VALUES (@from, @to, @relation, @weight)
+    VALUES (?, ?, ?, ?)
   `);
 
   const upsertMany = db.transaction((edges: CodeEdge[]) => {
     for (const edge of edges) {
-      stmt.run({ from: edge.from, to: edge.to, relation: edge.relation, weight: edge.weight ?? 1.0 });
+      stmt.run(edge.from, edge.to, edge.relation, edge.weight ?? 1.0);
     }
   });
 
@@ -206,10 +214,12 @@ export function upsertFiles(files: FileInfo[]): void {
   const db = getDb();
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO files (path, language, size, last_modified, hash)
-    VALUES (@path, @language, @size, @lastModified, @hash)
+    VALUES (?, ?, ?, ?, ?)
   `);
   const upsertMany = db.transaction((files: FileInfo[]) => {
-    for (const f of files) stmt.run(f);
+    for (const f of files) {
+      stmt.run(f.path, f.language, f.size, f.lastModified, f.hash);
+    }
   });
   upsertMany(files);
 }
@@ -264,7 +274,13 @@ function rowToNode(row: any): CodeNode {
     signature: row.signature,
     docComment: row.doc_comment,
     embedding: row.embedding
-      ? Array.from(new Float32Array(row.embedding.buffer || row.embedding))
+      ? Array.from(
+          new Float32Array(
+            row.embedding.buffer,
+            row.embedding.byteOffset,
+            row.embedding.byteLength / Float32Array.BYTES_PER_ELEMENT
+          )
+        )
       : undefined,
   };
 }
