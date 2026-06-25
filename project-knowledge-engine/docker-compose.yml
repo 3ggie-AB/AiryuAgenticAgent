@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  # ── Knowledge Engine API ──────────────────────────────────
+  knowledge-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: knowledge-engine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=llama-3.3-70b-versatile
+      - PORT=3000
+      - DB_PATH=/app/data/knowledge.db
+      - NODE_ENV=production
+    volumes:
+      # Mount your project to index
+      - ${TARGET_DIR:-./example}:/target:ro
+      # Persist the knowledge graph
+      - knowledge-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["bun", "run", "src/index.ts", "serve", "/target"]
+
+  # ── Indexer (runs once then exits) ───────────────────────
+  indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: knowledge-indexer
+    depends_on:
+      knowledge-engine:
+        condition: service_healthy
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DB_PATH=/app/data/knowledge.db
+    volumes:
+      - ${TARGET_DIR:-./example}:/target:ro
+      - knowledge-data:/app/data
+    command: ["bun", "run", "src/index.ts", "index", "/target"]
+    profiles:
+      - index
+
+  # ── Watcher (continuous re-indexing) ─────────────────────
+  watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: knowledge-watcher
+    restart: unless-stopped
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DB_PATH=/app/data/knowledge.db
+    volumes:
+      - ${TARGET_DIR:-./example}:/target:rw
+      - knowledge-data:/app/data
+    command: ["bun", "run", "src/index.ts", "watch", "/target"]
+    profiles:
+      - watch
+
+volumes:
+  knowledge-data:
+    driver: local
